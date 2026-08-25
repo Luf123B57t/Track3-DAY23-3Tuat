@@ -1,6 +1,12 @@
 """State schema for the Day 08 LangGraph lab.
 
-Students should extend the schema only when needed. Keep state lean and serializable.
+Định nghĩa cấu trúc dữ liệu trạng thái (State Schema) cho Agent Workflow.
+Bao gồm:
+- Enum Route: Danh sách các đường hướng phân loại yêu cầu.
+- LabEvent & ApprovalDecision: Các Pydantic model ghi log audit event và quyết định duyệt HITL.
+- AgentState: State chính kiểu TypedDict được LangGraph quản lý xuyên suốt workflow.
+- Scenario: Cấu hình kịch bản kiểm thử cho agent.
+- initial_state & make_event: Hàm khởi tạo trạng thái ban đầu và tạo event log.
 """
 
 from __future__ import annotations
@@ -13,17 +19,19 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class Route(StrEnum):
-    SIMPLE = "simple"
-    TOOL = "tool"
-    MISSING_INFO = "missing_info"
-    RISKY = "risky"
-    ERROR = "error"
-    DEAD_LETTER = "dead_letter"
-    DONE = "done"
+    """Enum quy định các tuyến (route) xử lý trong workflow."""
+
+    SIMPLE = "simple"          # Yêu cầu đơn giản, trả lời trực tiếp không cần tool
+    TOOL = "tool"              # Cần tra cứu dữ liệu / gọi tool thực thi
+    MISSING_INFO = "missing_info"  # Yêu cầu thiếu thông tin, cần hỏi lại người dùng
+    RISKY = "risky"            # Thao tác có rủi ro cao (hoàn tiền, xóa tk), cần phê duyệt
+    ERROR = "error"            # Lỗi hệ thống/tạm thời, cần xử lý retry
+    DEAD_LETTER = "dead_letter"  # Vượt quá số lần thử lại max, đẩy vào hàng chờ xử lý lỗi
+    DONE = "done"              # Hoàn tất workflow
 
 
 class LabEvent(BaseModel):
-    """Append-only audit event for grading and debugging."""
+    """Model lưu vết sự kiện (Audit Event) dạng append-only phục vụ chấm điểm và debug."""
 
     node: str
     event_type: str
@@ -33,37 +41,43 @@ class LabEvent(BaseModel):
 
 
 class ApprovalDecision(BaseModel):
+    """Quyết định phê duyệt từ con người (Human-in-the-loop)."""
+
     approved: bool = False
     reviewer: str = "mock-reviewer"
     comment: str = ""
 
 
 class AgentState(TypedDict, total=False):
-    """LangGraph state schema for support-ticket agent orchestration.
+    """LangGraph state schema cho tác vụ điều phối support-ticket agent.
 
-    Append-only fields use Annotated[list, add] for auditability.
+    Các trường dạng danh sách tích lũy (Append-only) sử dụng Annotated[list, add]
+    để tự động nối dữ liệu qua các bước node.
     """
 
-    thread_id: str
-    scenario_id: str
-    query: str
-    route: str
-    risk_level: str
-    attempt: int
-    max_attempts: int
-    final_answer: str | None
-    evaluation_result: str
-    pending_question: str
-    proposed_action: str
-    approval: dict[str, Any]
-    # Hint: check what your nodes return and what your routing functions read.
-    messages: Annotated[list[str], add]
-    tool_results: Annotated[list[str], add]
-    errors: Annotated[list[str], add]
-    events: Annotated[list[dict[str, Any]], add]
+    thread_id: str             # ID định danh phiên làm việc (thread)
+    scenario_id: str           # ID kịch bản kiểm thử
+    query: str                 # Câu hỏi / yêu cầu từ người dùng
+    route: str                 # Danh mục tuyến xử lý được classify chọn
+    risk_level: str            # Mức độ rủi ro ('high' hoặc 'low')
+    attempt: int               # Số lần đã thử lại (retry counter)
+    max_attempts: int          # Số lần thử lại tối đa cho phép
+    final_answer: str | None   # Câu trả lời cuối cùng dành cho người dùng
+    evaluation_result: str     # Kết quả đánh giá tool ('success' hoặc 'needs_retry')
+    pending_question: str      # Câu hỏi làm rõ thông tin khi thông tin bị thiếu
+    proposed_action: str       # Mô tả hành động rủi ro chờ phê duyệt
+    approval: dict[str, Any]   # Thông tin chi tiết quyết định phê duyệt (HITL)
+
+    # Danh sách dữ liệu dạng tích lũy (Append-only)
+    messages: Annotated[list[str], add]             # Nhật ký tin nhắn workflow
+    tool_results: Annotated[list[str], add]         # Lịch sử kết quả thực thi các tool
+    errors: Annotated[list[str], add]               # Nhật ký các lỗi phát sinh
+    events: Annotated[list[dict[str, Any]], add]    # Nhật ký toàn bộ các audit event
 
 
 class Scenario(BaseModel):
+    """Cấu hình chi tiết một kịch bản test dành cho agent."""
+
     id: str
     query: str
     expected_route: Route
@@ -75,13 +89,14 @@ class Scenario(BaseModel):
     @field_validator("query")
     @classmethod
     def query_must_not_be_empty(cls, value: str) -> str:
+        """Kiểm tra đảm bảo query không được để trống."""
         if not value.strip():
             raise ValueError("query must not be empty")
         return value
 
 
 def initial_state(scenario: Scenario) -> AgentState:
-    """Create a serializable initial state for one scenario."""
+    """Tạo trạng thái khởi tạo (initial state) có thể serialize từ thông tin kịch bản."""
     return {
         "thread_id": f"thread-{scenario.id}",
         "scenario_id": scenario.id,
@@ -105,7 +120,8 @@ def initial_state(scenario: Scenario) -> AgentState:
 def make_event(
     node: str, event_type: str, message: str, **metadata: Any  # noqa: ANN401
 ) -> dict[str, Any]:
-    """Create a normalized event payload."""
+    """Hàm tiện ích giúp tạo payload event chuẩn hóa theo dạng dictionary."""
     return LabEvent(
         node=node, event_type=event_type, message=message, metadata=metadata
     ).model_dump()
+

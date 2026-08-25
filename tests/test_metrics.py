@@ -1,8 +1,14 @@
+"""Unit tests for metrics calculation and summarization.
+
+Kiểm tra tính đúng đắn của việc trích xuất và tổng hợp chỉ số ScenarioMetric và MetricsReport.
+"""
+
 from langgraph_agent_lab.metrics import metric_from_state, summarize_metrics
 from langgraph_agent_lab.state import make_event
 
 
 def test_metric_from_state_success():
+    """Kiểm tra trích xuất metric thành công khi route thực tế khớp với route dự kiến."""
     state = {
         "scenario_id": "S",
         "route": "simple",
@@ -17,6 +23,7 @@ def test_metric_from_state_success():
 
 
 def test_metric_from_state_route_mismatch():
+    """Kiểm tra trích xuất metric báo thất bại (success=False) khi route bị lệch."""
     state = {
         "scenario_id": "S",
         "route": "tool",
@@ -30,6 +37,7 @@ def test_metric_from_state_route_mismatch():
 
 
 def test_summarize_metrics():
+    """Kiểm tra tổng hợp danh sách ScenarioMetric thành MetricsReport."""
     m1 = metric_from_state(
         {"scenario_id": "1", "route": "simple", "final_answer": "ok", "events": [], "errors": [], "approval": None},
         "simple",
@@ -43,3 +51,4 @@ def test_summarize_metrics():
     report = summarize_metrics([m1, m2])
     assert report.total_scenarios == 2
     assert 0 <= report.success_rate <= 1
+

@@ -1,4 +1,9 @@
-"""Checkpointer adapter."""
+"""Checkpointer adapter.
+
+Mô-đun quản lý bộ lưu trữ trạng thái (Checkpointer Adapter) cho LangGraph workflow.
+Cho phép lưu trữ checkpoint của đồ thị trong bộ nhớ (MemorySaver) hoặc cơ sở dữ liệu (SqliteSaver),
+giúp workflow có khả năng khôi phục trạng thái (Resume / State Persistence).
+"""
 
 from __future__ import annotations
 
@@ -9,12 +14,12 @@ from typing import Any
 def build_checkpointer(
     kind: str = "memory", database_url: str | None = None
 ) -> Any | None:  # noqa: ANN401
-    """Return a LangGraph checkpointer.
+    """Tạo đối tượng LangGraph checkpointer tương ứng với loại cấu hình.
 
-    Supported kinds:
-    - "none": returns None (no persistence)
-    - "memory": returns MemorySaver
-    - "sqlite": returns SqliteSaver using sqlite3 connection
+    Các loại hỗ trợ (`kind`):
+    - "none": Trả về None (không lưu trữ trạng thái)
+    - "memory": Trả về MemorySaver (lưu trạng thái tạm thời trong RAM)
+    - "sqlite": Trả về SqliteSaver (lưu trạng thái bền vững vào SQLite database)
     """
     if kind == "none":
         return None
@@ -39,3 +44,4 @@ def build_checkpointer(
             "Postgres checkpointer is not enabled in this lab environment."
         )
     raise ValueError(f"Unknown checkpointer kind: {kind}")
+

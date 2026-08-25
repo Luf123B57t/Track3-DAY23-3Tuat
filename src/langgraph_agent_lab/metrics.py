@@ -1,4 +1,12 @@
-"""Metrics schema and helpers."""
+"""Metrics schema and helpers.
+
+Mô-đun định nghĩa Pydantic schema và hàm tiện ích thu thập chỉ số đánh giá (Metrics):
+- ScenarioMetric: Chỉ số đánh giá của từng kịch bản đơn lẻ.
+- MetricsReport: Báo cáo tổng hợp toàn bộ các kịch bản.
+- metric_from_state: Trích xuất chỉ số metric từ trạng thái AgentState sau khi hoàn thành.
+- summarize_metrics: Tính toán chỉ số trung bình và tỷ lệ thành công.
+- write_metrics: Ghi báo cáo metrics ra file JSON.
+"""
 
 from __future__ import annotations
 
@@ -11,6 +19,8 @@ from pydantic import BaseModel, Field
 
 
 class ScenarioMetric(BaseModel):
+    """Model lưu trữ chỉ số đo lường hiệu năng của từng kịch bản (Scenario)."""
+
     scenario_id: str
     success: bool
     expected_route: str
@@ -25,6 +35,8 @@ class ScenarioMetric(BaseModel):
 
 
 class MetricsReport(BaseModel):
+    """Model tổng hợp báo cáo chỉ số của toàn bộ kịch bản kiểm thử."""
+
     total_scenarios: int
     success_rate: float
     avg_nodes_visited: float
@@ -37,6 +49,7 @@ class MetricsReport(BaseModel):
 def metric_from_state(
     state: dict[str, Any], expected_route: str, approval_required: bool
 ) -> ScenarioMetric:
+    """Trích xuất và tính toán thông số `ScenarioMetric` từ `AgentState` kết thúc."""
     events = state.get("events", []) or []
     errors = state.get("errors", []) or []
     actual_route = state.get("route")
@@ -63,6 +76,7 @@ def metric_from_state(
 
 
 def summarize_metrics(items: list[ScenarioMetric]) -> MetricsReport:
+    """Tổng hợp danh sách các `ScenarioMetric` thành một `MetricsReport` tổng quan."""
     if not items:
         raise ValueError("No scenario metrics to summarize")
     return MetricsReport(
@@ -77,6 +91,8 @@ def summarize_metrics(items: list[ScenarioMetric]) -> MetricsReport:
 
 
 def write_metrics(report: MetricsReport, output_path: str | Path) -> None:
+    """Ghi dữ liệu `MetricsReport` ra file dưới định dạng JSON formatted."""
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(report.model_dump(), indent=2, ensure_ascii=False), encoding="utf-8")
+

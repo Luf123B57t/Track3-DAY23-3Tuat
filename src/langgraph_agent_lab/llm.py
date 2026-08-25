@@ -1,9 +1,9 @@
 """LLM factory helper.
 
-Provides a simple interface to create LLM clients for use in nodes.
-Students should use this helper so the lab works with any supported provider.
+Hàm hỗ trợ khởi tạo LLM client (LLM Factory Helper) dùng cho các nút xử lý trong LangGraph workflow.
+Tự động phát hiện và sử dụng nhà cung cấp mô hình phù hợp dựa trên API key cấu hình trong môi trường.
 
-Usage in nodes:
+Cách dùng trong các nút:
     from .llm import get_llm
     llm = get_llm()
     response = llm.invoke("Hello")
@@ -14,6 +14,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
+# Nạp các biến môi trường từ file .env nếu thư viện python-dotenv có sẵn
 try:
     from dotenv import load_dotenv
 
@@ -23,15 +24,16 @@ except ImportError:
 
 
 def get_llm(model: str | None = None, temperature: float = 0.0) -> Any:  # noqa: ANN401
-    """Create an LLM client from environment configuration.
+    """Tạo đối tượng LLM client dựa trên cấu hình môi trường (.env).
 
-    Checks for API keys in this order:
-    1. GEMINI_API_KEY → ChatGoogleGenerativeAI
-    2. OPENAI_API_KEY → ChatOpenAI
-    3. ANTHROPIC_API_KEY → ChatAnthropic
+    Thứ tự ưu tiên kiểm tra API key:
+    1. GEMINI_API_KEY    → Khởi tạo ChatGoogleGenerativeAI
+    2. OPENAI_API_KEY    → Khởi tạo ChatOpenAI
+    3. ANTHROPIC_API_KEY → Khởi tạo ChatAnthropic
 
-    Override model with the `model` parameter or LLM_MODEL env var.
+    Tên model có thể ghi đè qua tham số `model` hoặc biến môi trường `LLM_MODEL`.
     """
+    # 1. Kiểm tra Gemini API Key
     if os.getenv("GEMINI_API_KEY"):
         try:
             from langchain_google_genai import ChatGoogleGenerativeAI
@@ -43,6 +45,7 @@ def get_llm(model: str | None = None, temperature: float = 0.0) -> Any:  # noqa:
             temperature=temperature,
         )
 
+    # 2. Kiểm tra OpenAI API Key
     if os.getenv("OPENAI_API_KEY"):
         try:
             from langchain_openai import ChatOpenAI
@@ -53,6 +56,7 @@ def get_llm(model: str | None = None, temperature: float = 0.0) -> Any:  # noqa:
             temperature=temperature,
         )
 
+    # 3. Kiểm tra Anthropic API Key
     if os.getenv("ANTHROPIC_API_KEY"):
         try:
             from langchain_anthropic import ChatAnthropic
@@ -63,7 +67,9 @@ def get_llm(model: str | None = None, temperature: float = 0.0) -> Any:  # noqa:
             temperature=temperature,
         )
 
+    # Nếu không tìm thấy bất kỳ API key nào
     raise RuntimeError(
         "No LLM API key found. Set GEMINI_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY in .env\n"
         "See .env.example for configuration."
     )
+

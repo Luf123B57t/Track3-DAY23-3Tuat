@@ -1,4 +1,7 @@
-"""Scenario loading."""
+"""Scenario loading helper.
+
+Mô-đun hỗ trợ nạp các kịch bản kiểm thử (Scenarios) từ file JSON Lines (.jsonl).
+"""
 
 from __future__ import annotations
 
@@ -8,6 +11,10 @@ from .state import Scenario
 
 
 def load_scenarios(path: str | Path) -> list[Scenario]:
+    """Đọc và validate danh sách các đối tượng `Scenario` từ file JSONL.
+
+    Yêu cầu tối thiểu phải có ít nhất 6 scenarios để đáp ứng tiêu chuẩn chấm điểm.
+    """
     scenarios: list[Scenario] = []
     with Path(path).open("r", encoding="utf-8") as handle:
         for line_no, line in enumerate(handle, start=1):
@@ -20,3 +27,4 @@ def load_scenarios(path: str | Path) -> list[Scenario]:
     if len(scenarios) < 6:
         raise ValueError("At least 6 scenarios are required for grading")
     return scenarios
+

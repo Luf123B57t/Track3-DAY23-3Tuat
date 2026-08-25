@@ -1,7 +1,8 @@
 """Routing functions for conditional edges.
 
-Each function takes AgentState and returns a string — the name of the next node.
-These strings MUST match node names registered in graph.py.
+Các hàm rẽ nhánh điều kiện (Conditional Routing Functions) trong LangGraph workflow.
+Mỗi hàm nhận đầu vào là AgentState hiện tại và trả về tên nút (string) tiếp theo.
+Tên nút trả về PHẢI khớp chính xác với tên nút đã đăng ký trong graph.py.
 """
 
 from __future__ import annotations
@@ -10,15 +11,15 @@ from .state import AgentState, Route
 
 
 def route_after_classify(state: AgentState) -> str:
-    """Map classified route to the next graph node.
+    """Điều hướng đồ thị sau khi thực hiện phân loại ý định (Classification).
 
-    Mapping:
-    - "simple"       → "answer"
-    - "tool"         → "tool"
-    - "missing_info" → "clarify"
-    - "risky"        → "risky_action"
-    - "error"        → "retry"
-    - unknown/default → "answer"
+    Mapping quy định nút tiếp theo dựa trên loại tuyến (`route`):
+    - "simple"       → "answer"       (Trả lời ngay bằng LLM)
+    - "tool"         → "tool"         (Gọi tool thực thi / tra cứu)
+    - "missing_info" → "clarify"      (Hỏi người dùng để làm rõ)
+    - "risky"        → "risky_action" (Chuẩn bị hành động rủi ro cần phê duyệt)
+    - "error"        → "retry"        (Chuyển sang nút thử lại/lỗi)
+    - Mặc định        → "answer"
     """
     route_str = state.get("route", "")
     mapping = {
@@ -32,13 +33,11 @@ def route_after_classify(state: AgentState) -> str:
 
 
 def route_after_evaluate(state: AgentState) -> str:
-    """Decide if tool result is satisfactory or needs retry.
+    """Đánh giá kết quả chạy tool có đạt yêu cầu hay cần thử lại (Retry Loop Gate).
 
-    This is the 'done?' check that creates the retry loop —
-    a key LangGraph advantage over linear LCEL chains.
-
-    - If evaluation_result == "needs_retry" → "retry"
-    - Otherwise → "answer"
+    Đây là vòng lặp kiểm tra rẽ nhánh:
+    - Nếu evaluation_result == "needs_retry" → Chuyển sang nút "retry"
+    - Ngược lại                            → Chuyển sang nút "answer" để tổng hợp câu trả lời
     """
     eval_result = state.get("evaluation_result", "")
     if eval_result == "needs_retry":
@@ -47,12 +46,11 @@ def route_after_evaluate(state: AgentState) -> str:
 
 
 def route_after_retry(state: AgentState) -> str:
-    """Decide whether to retry the tool or give up.
+    """Quyết định thử lại chạy tool hay chuyển sang Dead Letter Queue khi vượt quá giới hạn.
 
-    MUST be bounded — unbounded retry loops will fail grading.
-
-    - If attempt < max_attempts → "tool" (try again)
-    - If attempt >= max_attempts → "dead_letter" (give up, escalate)
+    Giới hạn vòng lặp thử lại (Bounded Retry Loop):
+    - Nếu số lần thử hiện tại < max_attempts → Quay lại "tool" để thử lại
+    - Nếu số lần thử hiện tại >= max_attempts → Chuyển sang "dead_letter" (hàng chờ xử lý thất bại)
     """
     attempt = state.get("attempt", 0)
     max_attempts = state.get("max_attempts", 3)
@@ -62,12 +60,13 @@ def route_after_retry(state: AgentState) -> str:
 
 
 def route_after_approval(state: AgentState) -> str:
-    """Route based on human approval decision.
+    """Điều hướng luồng dựa trên kết quả phê duyệt của con người (Human Approval Decision).
 
-    - If approved → "tool" (proceed with risky action)
-    - If rejected → "clarify" (ask user for alternative)
+    - Nếu được phê duyệt (approved=True) → Chuyển sang nút "tool" để thực thi hành động rủi ro
+    - Nếu từ chối (approved=False)     → Chuyển sang nút "clarify" để thông báo / phản hồi người dùng
     """
     approval = state.get("approval", {})
     if isinstance(approval, dict) and approval.get("approved", False):
         return "tool"
     return "clarify"
+

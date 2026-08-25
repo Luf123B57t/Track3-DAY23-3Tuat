@@ -1,4 +1,10 @@
-"""CLI for the lab."""
+"""CLI for the lab.
+
+Mô-đun giao diện dòng lệnh (Command Line Interface - CLI) xây dựng bằng Typer.
+Cung cấp các lệnh:
+- `run-scenarios`: Chạy toàn bộ các kịch bản kiểm thử, xuất dữ liệu chỉ số (metrics JSON) và báo cáo.
+- `validate-metrics`: Kiểm tra tính hợp lệ của schema file metrics JSON.
+"""
 
 from __future__ import annotations
 
@@ -16,6 +22,7 @@ from .report import write_report
 from .scenarios import load_scenarios
 from .state import initial_state
 
+# Khởi tạo Typer CLI app
 app = typer.Typer(no_args_is_help=True)
 
 
@@ -24,12 +31,17 @@ def run_scenarios(
     config: Annotated[Path, typer.Option("--config")],
     output: Annotated[Path, typer.Option("--output")],
 ) -> None:
-    """Run all grading scenarios and write metrics JSON."""
+    """Chạy tất cả kịch bản kiểm thử (grading scenarios) và ghi dữ liệu metrics ra file JSON."""
+    # Nạp cấu hình từ file YAML
     cfg = yaml.safe_load(config.read_text(encoding="utf-8"))
     scenarios = load_scenarios(cfg["scenarios_path"])
+    # Khởi tạo checkpointer theo cấu hình (memory/sqlite/none)
     checkpointer = build_checkpointer(cfg.get("checkpointer", "memory"), cfg.get("database_url"))
+    # Xây dựng đồ thị workflow LangGraph
     graph = build_graph(checkpointer=checkpointer)
     metrics = []
+
+    # Duyệt và thực thi từng kịch bản kiểm thử
     for scenario in scenarios:
         state = initial_state(scenario)
         run_config = {"configurable": {"thread_id": state["thread_id"]}}
@@ -38,6 +50,8 @@ def run_scenarios(
             final_state, scenario.expected_route.value, scenario.requires_approval
         )
         metrics.append(metric)
+
+    # Tổng hợp chỉ số và ghi file đầu ra
     report = summarize_metrics(metrics)
     write_metrics(report, output)
     if cfg.get("report_path"):
@@ -47,7 +61,7 @@ def run_scenarios(
 
 @app.command("validate-metrics")
 def validate_metrics(metrics: Annotated[Path, typer.Option("--metrics")]) -> None:
-    """Validate metrics JSON schema for grading."""
+    """Kiểm tra và xác thực schema file JSON metrics phục vụ chấm điểm."""
     payload = json.loads(metrics.read_text(encoding="utf-8"))
     report = MetricsReport.model_validate(payload)
     if report.total_scenarios < 6:
@@ -57,3 +71,4 @@ def validate_metrics(metrics: Annotated[Path, typer.Option("--metrics")]) -> Non
 
 if __name__ == "__main__":
     app()
+

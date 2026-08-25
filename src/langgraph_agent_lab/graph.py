@@ -1,7 +1,9 @@
 """Graph construction.
 
-This module is intentionally import-safe. It imports LangGraph only inside the builder so unit tests
-that check schema/metrics can run even if students are still debugging graph wiring.
+Mô-đun xây dựng và biên dịch đồ thị luồng công việc LangGraph (StateGraph).
+Mô-đun này được thiết kế an toàn khi import (import-safe). Việc import LangGraph
+chỉ diễn ra bên trong hàm `build_graph` để đảm bảo unit test vẫn có thể chạy kiểm tra schema/metrics
+ngay cả khi chưa cài đặt đầy đủ các thư viện phụ thuộc.
 """
 
 from __future__ import annotations
@@ -12,9 +14,9 @@ from .state import AgentState
 
 
 def build_graph(checkpointer: Any | None = None) -> Any:  # noqa: ANN401
-    """Build and compile the LangGraph workflow.
+    """Xây dựng và biên dịch workflow StateGraph trong LangGraph.
 
-    Architecture:
+    Kiến trúc đồ thị (Architecture):
 
     START → intake → classify → [conditional: route_after_classify]
       simple       → answer → finalize → END
@@ -51,9 +53,10 @@ def build_graph(checkpointer: Any | None = None) -> Any:  # noqa: ANN401
         route_after_retry,
     )
 
+    # Khởi tạo đồ thị StateGraph với schema trạng thái AgentState
     builder = StateGraph(AgentState)
 
-    # 1. Register all 11 nodes
+    # 1. Đăng ký toàn bộ 11 nút (Nodes) xử lý vào đồ thị
     builder.add_node("intake", intake_node)
     builder.add_node("classify", classify_node)
     builder.add_node("tool", tool_node)
@@ -66,7 +69,7 @@ def build_graph(checkpointer: Any | None = None) -> Any:  # noqa: ANN401
     builder.add_node("dead_letter", dead_letter_node)
     builder.add_node("finalize", finalize_node)
 
-    # 2. Add fixed edges
+    # 2. Thêm các cạnh cố định (Fixed Edges) kết nối các nút tuyến tính
     builder.add_edge(START, "intake")
     builder.add_edge("intake", "classify")
     builder.add_edge("tool", "evaluate")
@@ -76,7 +79,8 @@ def build_graph(checkpointer: Any | None = None) -> Any:  # noqa: ANN401
     builder.add_edge("dead_letter", "finalize")
     builder.add_edge("finalize", END)
 
-    # 3. Add conditional edges
+    # 3. Thêm các cạnh rẽ nhánh điều kiện (Conditional Edges)
+    # 3.1 Rẽ nhánh sau khi phân loại ý định ở nút classify
     builder.add_conditional_edges(
         "classify",
         route_after_classify,
@@ -88,6 +92,7 @@ def build_graph(checkpointer: Any | None = None) -> Any:  # noqa: ANN401
             "retry": "retry",
         },
     )
+    # 3.2 Rẽ nhánh sau khi đánh giá kết quả công cụ ở nút evaluate
     builder.add_conditional_edges(
         "evaluate",
         route_after_evaluate,
@@ -96,6 +101,7 @@ def build_graph(checkpointer: Any | None = None) -> Any:  # noqa: ANN401
             "retry": "retry",
         },
     )
+    # 3.3 Rẽ nhánh sau khi thực hiện ghi nhận lỗi/thử lại ở nút retry
     builder.add_conditional_edges(
         "retry",
         route_after_retry,
@@ -104,6 +110,7 @@ def build_graph(checkpointer: Any | None = None) -> Any:  # noqa: ANN401
             "dead_letter": "dead_letter",
         },
     )
+    # 3.4 Rẽ nhánh sau bước phê duyệt người dùng ở nút approval
     builder.add_conditional_edges(
         "approval",
         route_after_approval,
@@ -113,4 +120,6 @@ def build_graph(checkpointer: Any | None = None) -> Any:  # noqa: ANN401
         },
     )
 
+    # Biên dịch đồ thị đi kèm cơ chế checkpointer (nếu có)
     return builder.compile(checkpointer=checkpointer)
+

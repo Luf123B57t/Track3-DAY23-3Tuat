@@ -1,10 +1,7 @@
 """Graph smoke tests.
 
-These tests verify end-to-end graph execution. They will fail with NotImplementedError
-until you implement nodes, routing, and graph wiring.
-
-Note: These tests require a configured LLM (OPENAI_API_KEY or ANTHROPIC_API_KEY)
-because classify_node and answer_node use real LLM calls.
+Các bài test tích hợp End-to-End (Smoke Tests) cho LangGraph workflow.
+Kiểm tra khả năng thực thi và rẽ nhánh của đồ thị qua các kịch bản thực tế.
 """
 
 import importlib.util
@@ -39,6 +36,7 @@ from langgraph_agent_lab.state import Route, Scenario, initial_state
     ],
 )
 def test_graph_runs_and_routes_correctly(query, expected_route):
+    """Kiểm tra đồ thị thực thi và rẽ nhánh chính xác theo từng loại câu hỏi query."""
     graph = build_graph(checkpointer=build_checkpointer("memory"))
     scenario = Scenario(id="smoke", query=query, expected_route=Route(expected_route))
     state = initial_state(scenario)
@@ -48,7 +46,7 @@ def test_graph_runs_and_routes_correctly(query, expected_route):
 
 
 def test_graph_terminates_all_routes():
-    """Verify every route reaches finalize node."""
+    """Kiểm tra tất cả các tuyến (routes) đều kết thúc tại nút finalize."""
     graph = build_graph(checkpointer=build_checkpointer("memory"))
     queries = [
         ("simple query about help", Route.SIMPLE),
@@ -64,3 +62,4 @@ def test_graph_terminates_all_routes():
         events = result.get("events", [])
         finalize_events = [e for e in events if e.get("node") == "finalize"]
         assert finalize_events, f"Route {route.value} did not reach finalize node"
+

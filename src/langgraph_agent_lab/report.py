@@ -1,6 +1,7 @@
 """Report generation helper.
 
-Generates lab report markdown from metrics data based on reports/lab_report_template.md.
+Mô-đun hỗ trợ tự động tạo báo cáo kết quả bài lab dưới dạng định dạng Markdown (lab report)
+dựa trên dữ liệu chỉ số thu thập từ MetricsReport.
 """
 
 from __future__ import annotations
@@ -11,7 +12,7 @@ from .metrics import MetricsReport
 
 
 def render_report(metrics: MetricsReport) -> str:
-    """Render a complete lab report from metrics data."""
+    """Tạo chuỗi nội dung báo cáo dạng Markdown từ dữ liệu đối tượng `MetricsReport`."""
     lines = [
         "# Day 08 Lab Report — LangGraph Agentic Orchestration",
         "",
@@ -191,7 +192,8 @@ def render_report(metrics: MetricsReport) -> str:
 
 
 def write_report(metrics: MetricsReport, output_path: str | Path) -> None:
-    """Write the rendered report to a file."""
+    """Ghi nội dung báo cáo đã render ra file Markdown theo đường dẫn `output_path`."""
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_report(metrics), encoding="utf-8")
+
