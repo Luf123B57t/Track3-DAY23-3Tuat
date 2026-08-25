@@ -15,6 +15,9 @@ typecheck:
 run-scenarios:
 	python -m langgraph_agent_lab.cli run-scenarios --config configs/lab.yaml --output outputs/metrics.json
 
+ui:
+	streamlit run src/langgraph_agent_lab/streamlit_app.py
+
 grade-local:
 	python -m langgraph_agent_lab.cli validate-metrics --metrics outputs/metrics.json
 
